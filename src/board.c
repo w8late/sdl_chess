@@ -2,9 +2,6 @@
 #include "board.h"
 #include "common.h"
 
-int findPieceAlongHorizontal(int c1, int c2);
-int findPieceAlongVertical(int,int);
-
 int in_range(int i, int b1, int b2);
 
 /* ==== board methods ====*/
@@ -19,10 +16,10 @@ void renderBoard(SDL_Renderer *render) {
         int x, y;
         i2c(i, x, y);
 
-        rect.x = x * WIDTH/8;
-        rect.y = y * HEIGHT/8;
-        rect.w = WIDTH/8;
-        rect.h = HEIGHT/8;
+        rect.x = x * CELL_SIZE;
+        rect.y = y * CELL_SIZE;
+        rect.w = CELL_SIZE;
+        rect.h = CELL_SIZE;
 
         SDL_SetRenderDrawColor(render,128,90,64,SDL_ALPHA_OPAQUE);
         if (((x+1) % 2 && y % 2) || (x % 2 && (y+1) % 2))  SDL_RenderFillRect(render, &rect);  /* alternating tiles */
@@ -30,6 +27,24 @@ void renderBoard(SDL_Renderer *render) {
     }
 }
 
+int movesOutOfCheck(int prev_cell, int cell, struct chessPiece piece) {
+    /* save board state */
+    struct chessPiece board[64];
+    memcpy(board, B, sizeof(struct chessPiece) * 64);
+    B[cell] = piece;
+    B[prev_cell].type = PIECE_NONE;
+
+    if (!inCheck(state.checked_cell, state.checked_color)) { 
+        /* reset board to save after checking */
+        memcpy(B, board, sizeof(struct chessPiece) * 64);
+        return 1; 
+    } else {
+        memcpy(B, board, sizeof(struct chessPiece) * 64);
+        return 0; 
+    };
+}
+
+/* check if the piece (king) is in check */
 int inCheck(int cell, int color) {
     int c, i;
     int cdist, ydist;
@@ -90,7 +105,7 @@ int inCheck(int cell, int color) {
     }
     
     /* pawns */
-    if (color == player_color) {
+    if (color == player_color) { /* pawns aren't symmetrical */
         for (c = cell - 7; c >= cell-  9; c--) {
             if (c >= 64 || c < 0) continue;
             if (c == cell - 8) continue;

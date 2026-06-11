@@ -3,12 +3,12 @@
 #include <SDL3_mixer/SDL_mixer.h>
 
 /* helper */
-#define LOG_IF_ERR(expr, stat)  \
-    do {                        \
-        if (!(expr)) {            \
+#define LOG_IF_ERR(expr, stat)              \
+    do {                                    \
+        if (!(expr)) {                      \
             SDL_Log("%s", SDL_GetError());  \
-            stat;               \
-        }                       \
+            stat;                           \
+        }                                   \
     } while(0);  
 
 /* global defines */
@@ -16,6 +16,7 @@
 #define HEIGHT 1024
 #define COLOR_WHITE 0
 #define COLOR_BLACK 1
+#define CELL_SIZE 128
 
 enum PIECE_TYPE {
     PIECE_PAWN,
@@ -41,6 +42,11 @@ struct gameState {
     int color_turn;
 };
 
+struct timer_data {
+    int timer; /* time in secs S*/
+    int color;
+};
+
 /* coordinate to board index 
  * where (1,1) == 0 and (8,8) == 63 */
 #define c2i(x, y) (((y)-1) * 8 + ((x)-1))
@@ -56,7 +62,7 @@ struct gameState {
 
 /* screen point to board index 
  * where (0,0) == 0 and (WIDTH-1, HEIGHT-1) == 63 */
-#define p2i(x, y) (c2i((int)(8.*(x)/WIDTH)+1, (int)(8.*(y)/HEIGHT)+1))
+#define p2i(x, y) (c2i((int)((x)/CELL_SIZE)+1, (int)((y)/CELL_SIZE)+1))
 
 /* global variables are a bit messy, but oh well */
 extern struct chessPiece B[64]; /* could have been one big uint64_t with bitwise operations for cell type and color */
