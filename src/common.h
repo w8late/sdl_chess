@@ -38,7 +38,7 @@ struct gameState {
     int checked_color;
     int checked_cell;
     int checkmate;
-    int winner;
+    int checkmated_color;
     int color_turn;
 };
 

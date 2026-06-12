@@ -1,3 +1,6 @@
+/* these are the worst pieces of code I've ever written
+ * but it works and it's fast enough so who cares */
+
 #include <math.h>
 #include "board.h"
 #include "common.h"
@@ -42,6 +45,27 @@ int movesOutOfCheck(int prev_cell, int cell, struct chessPiece piece) {
         memcpy(B, board, sizeof(struct chessPiece) * 64);
         return 0; 
     };
+}
+
+/* check if the piece (king) has been mated */
+int inMate(int cell) {
+    const int king_moves[] = {-9, -8, -7, -1, 1, 7, 8, 9};
+    int c, i, cdist, ydist;
+    int valid_moves = 0;
+
+    /* loop through all other moves and count the total possible moves */
+    for (i = 0; i < 8; i++) {
+        c = cell + king_moves[i];
+        if (c >= 64 || c < 0) continue;
+
+        cdist = abs(cell-c); 
+        ydist = abs((int)(c/8) - (int)(cell/8)); 
+        if (cdist == 1 && ydist == 0 && validMove(cell, c, B[cell])) valid_moves++;
+        else if ((cdist == 7 || cdist == 8 || cdist == 9) && ydist == 1 && validMove(cell, c, B[cell])) valid_moves++;    
+    }
+
+    /* the king has been mated if there are no valid moves */
+    return valid_moves == 0;
 }
 
 /* check if the piece (king) is in check */
@@ -181,12 +205,12 @@ int validMove(int prev_cell, int cell, struct chessPiece piece)  {
     case PIECE_PAWN:
         if (piece.color == player_color) {
             if (cell + 8 == prev_cell && B[cell].type == PIECE_NONE ) return 1; /* move up a square */
-            else if (cell + 16 == prev_cell && (int)(prev_cell / 8) == 6 && B[cell].type == PIECE_NONE) return 1; /* is the pawn's first move from 2nd rank */
+            else if (cell + 16 == prev_cell && (int)(prev_cell / 8) == 6 && B[cell].type == PIECE_NONE && B[cell+8].type == PIECE_NONE) return 1; /* is the pawn's first move from 2nd rank */
             else if ((prev_cell - cell == 7 || prev_cell - cell == 9) && B[cell].type != PIECE_NONE) return 1; /* capturing piece on the diagonal */
             else return 0;
         } else {
             if (prev_cell + 8 == cell && B[cell].type == PIECE_NONE) return 1; /* move down a square */
-            else if (prev_cell + 16 == cell && (int)(prev_cell/8) == 1 && B[cell].type == PIECE_NONE) return 1; /* is the pawn's first move from 7th rank */
+            else if (prev_cell + 16 == cell && (int)(prev_cell/8) == 1 && B[cell].type == PIECE_NONE && B[cell-8].type == PIECE_NONE) return 1; /* is the pawn's first move from 7th rank */
             else if ((cell - prev_cell == 7 || cell - prev_cell == 9) && B[cell].type != PIECE_NONE) return 1;
             else return 0;
         }

@@ -37,6 +37,7 @@ int main(int argc, char **argv) {
     int cell = 0, prev_cell = 0;
     SDL_Surface *wicon;
     SDL_FRect timer_rect;
+    SDL_TimerID bt_id, wt_id;
     struct timer_data black_timer = {10*60, COLOR_BLACK}, white_timer = {10*60, COLOR_WHITE};
     timer_rect.w = 100;
     timer_rect.h = 32;
@@ -62,14 +63,12 @@ int main(int argc, char **argv) {
         white_timer.timer = black_timer.timer = parseArgumentForTime(argv[2])*60;
     else  /* default timer */
         white_timer.timer = black_timer.timer = 10*60;
-
-    
      
     wicon = IMG_Load("./assets/chess_win_icon.png");
     SDL_SetWindowIcon(window, wicon);
 
-    SDL_AddTimer(1000, decrementTimer, &black_timer);
-    SDL_AddTimer(1000, decrementTimer, &white_timer);
+    bt_id = SDL_AddTimer(1000, decrementTimer, &black_timer);
+    wt_id = SDL_AddTimer(1000, decrementTimer, &white_timer);
  
     while (1) {
         /* we're reusing this single rect: silly */
@@ -96,11 +95,24 @@ int main(int argc, char **argv) {
                 if (!windowInFocus(window)) continue;  
                 SDL_GetMouseState(&mx,&my);
                 cell = p2i(mx,my);
+                      
                 if (picked && validMove(prev_cell, cell, held_piece)) {
+                    if (state.check && movesOutOfCheck(cell, i, held_piece)) {
+                        B[cell] = held_piece;
+                        MIX_PlayTrack(sounds[1], 0);
+                        state.color_turn = 1 - state.color_turn; /* clever way of switching turns */
+                    } else if (!state.check) {
+                        B[cell] = held_piece;
+                        MIX_PlayTrack(sounds[1], 0);
+                        state.color_turn = 1 - state.color_turn; 
+                    } else B[prev_cell] = held_piece; 
+                } else B[prev_cell] = held_piece;   
+                
+                /*  if (picked && validMove(prev_cell, cell, held_piece)) {
                     B[cell] = held_piece;
                     MIX_PlayTrack(sounds[1], 0);
-                    state.color_turn = 1 - state.color_turn; /* clever way of switching turns */
-                } else B[prev_cell] = held_piece;     
+                    state.color_turn = 1 - state.color_turn; 
+                } else B[prev_cell] = held_piece;  */
                 held_piece.type = PIECE_NONE;
                 picked = 0;
                 break;
@@ -113,6 +125,12 @@ int main(int argc, char **argv) {
                 state.check = 1;
                 state.checked_color = B[i].color;
                 state.checked_cell = i;
+
+                /* the has to be in check before it can be mated */
+                if (inMate(i)) {
+                    state.checkmate = 1;
+                    state.checkmated_color = B[i].color;
+                }
             }
         SDL_GetMouseState(&mx,&my);
         SDL_SetRenderDrawBlendMode(render, SDL_BLENDMODE_BLEND);
@@ -130,7 +148,7 @@ int main(int argc, char **argv) {
                 rect.x = x * rect.w;
                 rect.y = y * rect.h;  
                 
-                //if (validMove(prev_cell, i, held_piece))  SDL_RenderFillRect(render, &rect); 
+                /* if (validMove(prev_cell, i, held_piece))  SDL_RenderFillRect(render, &rect); */
                 
                 if (validMove(prev_cell, i, held_piece)) { 
                     if (state.check && movesOutOfCheck(cell, i, held_piece)) {
@@ -146,26 +164,42 @@ int main(int argc, char **argv) {
             SDL_RenderTexture(render,sprites[held_piece.color][held_piece.type],NULL,&rect);   
         }
 
-      
+        if (white_timer.timer == 0) {
+            state.checkmate = 1;
+            state.checkmated_color = COLOR_WHITE;
+        } 
+        if (black_timer.timer == 0) {
+            state.checkmate = 1;
+            state.checkmated_color = COLOR_BLACK;
+        } 
+
+        if (state.checkmate) goto quit;
 
         /* render timers */
         SDL_SetRenderDrawColor(trender, 22,22,22, SDL_ALPHA_OPAQUE);
         SDL_RenderClear(trender);
-        timer_rect.y =  8;
+        timer_rect.y = 64;
         timer_rect.x = 16;
         SDL_SetRenderDrawColor(trender, 234,210,168, SDL_ALPHA_OPAQUE);
         SDL_RenderFillRect(trender, &timer_rect);
-        renderTimer(trender, &timer_rect, black_timer);
+        renderTimer(trender, &timer_rect, white_timer);
        
         timer_rect.x = 320 - timer_rect.w - 16;
         SDL_SetRenderDrawColor(trender,128,90,64,SDL_ALPHA_OPAQUE); 
         SDL_RenderFillRect(trender, &timer_rect);
-        renderTimer(trender, &timer_rect, white_timer);
+        renderTimer(trender, &timer_rect, black_timer);
         
         SDL_RenderPresent(render);
         SDL_RenderPresent(trender);
     }
 quit:
+    if (state.checkmate) {
+        SDL_Log("CHECKMATE!");
+        if (state.checkmated_color == COLOR_BLACK) SDL_Log("WHITE wins!");
+        else SDL_Log("BLACK wins!");
+    } else SDL_Log("DRAW!");
+    SDL_RemoveTimer(bt_id);
+    SDL_RemoveTimer(wt_id);
     for (i = 0; i < 2; i++) 
         for (j = 0; j < 6; j++) 
             SDL_DestroyTexture(sprites[i][j]);
@@ -233,6 +267,6 @@ int windowInFocus(SDL_Window *win) {
 unsigned int decrementTimer(void *userdata, SDL_TimerID _id, unsigned int _interval) {
     struct timer_data *t = userdata;
 
-    if (t->color != state.color_turn && t->timer > 0) t->timer--;
+    if (t->color == state.color_turn && t->timer > 0) t->timer--;
     return 1000;
 }
